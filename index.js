@@ -185,7 +185,7 @@ function animate() {
     player.isAttacking)
   ) {
     player.isAttacking = false;
-    console.log("player attack successful");
+    document.querySelector("#enemyHealth").style.width = "20%";
   }
 
   if (
