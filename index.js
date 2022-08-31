@@ -5,80 +5,37 @@ const c = canvas.getContext("2d");
 const canvasWidth = (canvas.width = 1024);
 const canvasHeight = (canvas.height = 576);
 
+const textDisplay = document.querySelector("#displayText");
+
 //canvas fill
 //fillRect(positionX, positionY, width, height)
 c.fillRect(0, 0, canvasWidth, canvasHeight);
 
+//background spirte
+const background = new Sprite({
+  position: {
+    x: 0,
+    y: 0,
+  },
+  imageSrc: `./img/background.png`,
+});
+
+const shop = new Sprite({
+  position: {
+    x: 640,
+    y: 128,
+  },
+  imageSrc: `./img/shop.png`,
+  scale: 2.75,
+  framesMax: 6,
+});
+
 //global gravity for our game
 const gravity = 0.7;
 
-class Sprite {
-  //using object destructing we created properties in our constructor function, meaning when we call a new Sprite we need to define our properties with object syntax see player example === OOO
-  constructor({ position, velocity, color = "red", offset }) {
-    this.position = position;
-    this.velocity = velocity;
-    this.width = 50;
-    this.height = 150;
-    this.lastKey;
-    (this.attackBox = {
-      position: {
-        x: this.position.x,
-        y: this.position.y,
-      },
-      offset, //attack box will always be with our Sprite position
-      width: 100,
-      height: 50,
-    }),
-      (this.color = color);
-    this.isAttacking;
-  }
-
-  //will draw our sprite object
-  draw() {
-    c.fillStyle = this.color;
-    c.fillRect(this.position.x, this.position.y, this.width, this.height);
-
-    //attack box
-    if (this.isAttacking) {
-      c.fillStyle = "green";
-      c.fillRect(
-        this.attackBox.position.x,
-        this.attackBox.position.y,
-        this.attackBox.width,
-        this.attackBox.height
-      );
-    }
-  }
-
-  //update will update our player sprites movements
-  update() {
-    this.draw();
-    this.attackBox.position.x = this.position.x + this.attackBox.offset.x;
-    this.attackBox.position.y = this.position.y;
-
-    this.position.x += this.velocity.x;
-    this.position.y += this.velocity.y;
-
-    //if true player will fall
-    if (this.position.y + this.height + this.velocity.y >= canvasHeight) {
-      this.velocity.y = 0;
-      //when false gravity will stop sprite from falling
-    } else {
-      this.velocity.y += gravity;
-    }
-  }
-
-  attack() {
-    this.isAttacking = true;
-
-    setTimeout(() => {
-      this.isAttacking = false;
-    }, 100);
-  }
-}
 ///////////////
 //Example 000
-const player = new Sprite({
+const player = new Fighter({
   position: {
     x: 0,
     y: 0,
@@ -91,9 +48,38 @@ const player = new Sprite({
     x: 0,
     y: 0,
   },
+  imageSrc: `./img/samuraiMack/Idle.png`,
+  framesMax: 8,
+  scale: 2.5,
+  offset: {
+    x: 215,
+    y: 157,
+  },
+  sprites: {
+    idle: {
+      imageSrc: `./img/samuraiMack/Idle.png`,
+      framesMax: 8,
+    },
+    run: {
+      imageSrc: `./img/samuraiMack/Run.png`,
+      framesMax: 8,
+    },
+    jump: {
+      imageSrc: `./img/samuraiMack/Jump.png`,
+      framesMax: 2,
+    },
+    fall: {
+      imageSrc: `./img/samuraiMack/Fall.png`,
+      framesMax: 2,
+    },
+    attack1: {
+      imageSrc: `./img/samuraiMack/Attack1.png`,
+      framesMax: 6,
+    },
+  },
 });
 
-const enemy = new Sprite({
+const enemy = new Fighter({
   position: {
     x: 400,
     y: 100,
@@ -133,17 +119,7 @@ const keys = {
   },
 };
 
-function rectangularCollision({ rectangle1, rectangle2 }) {
-  return (
-    rectangle1.attackBox.position.x + rectangle1.attackBox.width >=
-      rectangle2.position.x &&
-    rectangle1.attackBox.position.x <=
-      rectangle2.position.x + rectangle2.width &&
-    rectangle1.attackBox.position.y + rectangle1.attackBox.height >=
-      rectangle2.position.y &&
-    rectangle1.attackBox.position.y <= rectangle2.position.y + enemy.height
-  );
-}
+decreaseTimer();
 
 /**
  * will loop infinite to create an animation
@@ -154,9 +130,11 @@ function animate() {
   //fill our canvas black
   c.fillStyle = "black";
   c.fillRect(0, 0, canvasWidth, canvasHeight);
+  background.update();
+  shop.update();
 
   player.update();
-  enemy.update();
+  // enemy.update();
 
   //guard that resets velocity for key event - will stop movement
   player.velocity.x = 0;
@@ -165,8 +143,17 @@ function animate() {
   //if pressed velocity will be in either direction for a and d
   if (keys.a.pressed && player.lastKey === "a") {
     player.velocity.x = -5;
+    player.switchSprite("run");
   } else if (keys.d.pressed && player.lastKey === "d") {
     player.velocity.x = 5;
+    player.switchSprite("run");
+  } else {
+    player.switchSprite("idle");
+  }
+  if (player.velocity.y < 0) {
+    player.switchSprite("jump");
+  } else if (player.velocity.y > 0) {
+    player.switchSprite("fall");
   }
 
   //Enemy movement
@@ -185,7 +172,8 @@ function animate() {
     player.isAttacking)
   ) {
     player.isAttacking = false;
-    document.querySelector("#enemyHealth").style.width = "20%";
+    enemy.health -= 20;
+    document.querySelector("#enemyHealth").style.width = enemy.health + "%";
   }
 
   if (
@@ -196,7 +184,13 @@ function animate() {
     enemy.isAttacking)
   ) {
     enemy.isAttacking = false;
-    console.log("enemy attack successful");
+    player.health -= 20;
+    document.querySelector("#playerHealth").style.width = player.health + "%";
+  }
+
+  //end game based on health
+  if (enemy.health <= 0 || player.health <= 0) {
+    determineWinner({ player, enemy, timerId });
   }
 }
 animate();
